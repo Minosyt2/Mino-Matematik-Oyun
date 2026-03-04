@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Minoş Games</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    text-align:center;
+    background:black;
+    color:white;
+    overflow:hidden;
+}
+
+/* YILDIZ ARKA PLAN */
+.stars{
+    position:fixed;
+    width:100%;
+    height:100%;
+    background:transparent url("https://www.transparenttextures.com/patterns/stardust.png");
+    animation: moveStars 60s linear infinite;
+    z-index:-1;
+}
+@keyframes moveStars{
+    from{background-position:0 0;}
+    to{background-position:10000px 5000px;}
+}
+
+/* SPLASH */
+#splash{
+    position:fixed;
+    width:100%;
+    height:100vh;
+    background:black;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
+}
+
+.logo{
+    font-size:70px;
+    font-family:cursive;
+    color:#ff4d4d;
+    animation: logoAnim 3s ease-in-out forwards;
+    text-shadow:0 0 10px #ff4d4d,
+                0 0 20px #ff1a1a,
+                0 0 40px #990000;
+}
+
+@keyframes logoAnim{
+    0%{opacity:0;transform:scale(0.5);}
+    30%{opacity:1;transform:scale(1.2);}
+    60%{transform:scale(1);}
+    100%{opacity:0;transform:scale(0.8);}
+}
+
+/* OYUN KUTUSU */
+.container{
+    margin-top:80px;
+    background:rgba(0,0,0,0.6);
+    padding:30px;
+    border-radius:15px;
+    display:inline-block;
+    min-width:320px;
+}
+
+button{
+    padding:10px 20px;
+    margin:5px;
+    border-radius:8px;
+    border:none;
+    cursor:pointer;
+    font-size:16px;
+}
+
+input{
+    padding:8px;
+    font-size:18px;
+    width:120px;
+    text-align:center;
+}
+</style>
+</head>
+<body>
+
+<div class="stars"></div>
+
+<!-- SPLASH -->
+<div id="splash">
+    <div class="logo">Minoş Games</div>
+</div>
+
+<!-- MENÜ -->
+<div class="container" id="menu" style="display:none;">
+    <h1>🎮 Matematik Oyunu</h1>
+    <h2>Seviye Seç</h2>
+    <button onclick="startGame(1)">Kolay</button>
+    <button onclick="startGame(2)">Orta</button>
+    <button onclick="startGame(3)">Zor</button>
+    <h3>🏆 En Yüksek Skor: <span id="highScore">0</span></h3>
+</div>
+
+<!-- OYUN -->
+<div class="container" id="game" style="display:none;">
+    <h2 id="levelText"></h2>
+    <h2 id="question"></h2>
+    <input type="number" id="answer" placeholder="Cevap">
+    <br><br>
+    <button onclick="checkAnswer()">Cevapla</button>
+    <h3>Puan: <span id="score">0</span></h3>
+    <h3>❤️ Can: <span id="lives">3</span></h3>
+    <h3>Kalan Süre: <span id="time">60</span></h3>
+</div>
+
+<script>
+
+/* AÇILIŞ MÜZİĞİ */
+function playIntro(){
+    let ctx=new(window.AudioContext||window.webkitAudioContext)();
+    let osc=ctx.createOscillator();
+    let gain=ctx.createGain();
+
+    osc.type="sawtooth";
+    osc.frequency.value=220;
+    gain.gain.value=0.2;
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+3);
+    setTimeout(()=>osc.stop(),3000);
+}
+
+/* SAYFA AÇILINCA */
+window.onload=function(){
+    playIntro();
+    setTimeout(()=>{
+        document.getElementById("splash").style.display="none";
+        document.getElementById("menu").style.display="block";
+        document.body.style.background="linear-gradient(135deg,#141e30,#243b55)";
+    },3000);
+};
+
+let score=0;
+let time=60;
+let lives=3;
+let correctAnswer;
+let level=1;
+let timer;
+
+let highScore=localStorage.getItem("highScore")||0;
+setTimeout(()=>{
+    if(document.getElementById("highScore"))
+        document.getElementById("highScore").innerText=highScore;
+},3000);
+
+/* OYUN SESLERİ */
+function playSound(type){
+    let ctx=new(window.AudioContext||window.webkitAudioContext)();
+    let osc=ctx.createOscillator();
+    osc.type="sine";
+
+    if(type==="correct")osc.frequency.value=600;
+    if(type==="wrong")osc.frequency.value=200;
+    if(type==="gameover")osc.frequency.value=100;
+
+    osc.connect(ctx.destination);
+    osc.start();
+    setTimeout(()=>osc.stop(),200);
+}
+
+function startGame(selectedLevel){
+    level=selectedLevel;
+    document.getElementById("menu").style.display="none";
+    document.getElementById("game").style.display="block";
+
+    score=0; time=60; lives=3;
+    document.getElementById("score").innerText=score;
+    document.getElementById("time").innerText=time;
+    document.getElementById("lives").innerText=lives;
+
+    document.getElementById("levelText").innerText=
+        level===1?"Kolay Seviye":
+        level===2?"Orta Seviye":"Zor Seviye";
+
+    generateQuestion();
+    timer=setInterval(countdown,1000);
+}
+
+function generateQuestion(){
+    let max=level===1?10:level===2?20:50;
+
+    let num1=Math.floor(Math.random()*max)+1;
+    let num2=Math.floor(Math.random()*max)+1;
+
+    let operator=["×","÷"][Math.floor(Math.random()*2)];
+
+    if(operator==="×"){
+        correctAnswer=num1*num2;
+    }else{
+        correctAnswer=num1;
+        num1=num1*num2;
+    }
+
+    document.getElementById("question").innerText=
+        num1+" "+operator+" "+num2+" = ?";
+}
+
+function checkAnswer(){
+    let userAnswer=Number(document.getElementById("answer").value);
+
+    if(userAnswer===correctAnswer){
+        score+=10;
+        document.getElementById("score").innerText=score;
+        playSound("correct");
+    }else{
+        lives--;
+        document.getElementById("lives").innerText=lives;
+        playSound("wrong");
+    }
+
+    if(lives===0){ endGame(); return; }
+
+    document.getElementById("answer").value="";
+    generateQuestion();
+}
+
+function countdown(){
+    time--;
+    document.getElementById("time").innerText=time;
+    if(time===0){ endGame(); }
+}
+
+function endGame(){
+    clearInterval(timer);
+    playSound("gameover");
+
+    if(score>highScore){
+        localStorage.setItem("highScore",score);
+        alert("🎉 Yeni Rekor! Skor: "+score);
+    }else{
+        alert("Oyun Bitti! Skor: "+score);
+    }
+    location.reload();
+}
+
+</script>
+</body>
+</html>
